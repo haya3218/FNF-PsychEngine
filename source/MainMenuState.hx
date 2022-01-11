@@ -255,6 +255,11 @@ class MainMenuState extends MusicBeatState
 				selectedSomethin = true;
 				MusicBeatState.switchState(new MasterEditorMenu());
 			}
+			else if (FlxG.keys.justPressed.FIVE)
+			{
+				selectedSomethin = true;
+				MusicBeatState.switchState(new poc.MarioPaintState());
+			}
 			#end
 		}
 
