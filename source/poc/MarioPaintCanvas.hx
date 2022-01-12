@@ -1,5 +1,17 @@
 package poc;
 
+import flixel.util.FlxTimer;
+import openfl.net.FileReference;
+import lime.ui.FileDialog;
+#if sys
+import sys.io.FileOutput;
+import sys.FileSystem;
+import sys.io.File;
+import sys.io.FileInput;
+#end
+import openfl.utils.ByteArray;
+import flixel.input.keyboard.FlxKey;
+import flixel.FlxG;
 import flixel.util.FlxColor;
 import lime.ui.MouseCursor;
 import openfl.ui.Mouse;
@@ -10,9 +22,16 @@ import openfl.display.BitmapData;
 import openfl.display.Bitmap;
 import openfl.display.Sprite;
 
+/**
+ * The canvas for said mario paint clone.
+ * 
+ * I got most of the code from https://github.com/epocti/CandidEditor/blob/master/source/Canvas.hx, I just modified it
+ *  for use with FNF as well as add extra features.
+ */
 class MarioPaintCanvas extends Sprite
 {
 	public var canvas:Bitmap;
+	public var lastBitmap:BitmapData;
 
 	public var lastMouseX:Int = 0;
 	public var lastMouseY:Int = 0;
@@ -23,9 +42,15 @@ class MarioPaintCanvas extends Sprite
 
 	public var currentColor:Int = FlxColor.BLACK;
 
+	var _iwidth:Int;
+	var _iheight:Int;
+
 	public function new(width:Int, height:Int, initFill:Int = 0xFFFFFFFF)
 	{
 		super();
+
+		_iwidth = width;
+		_iheight = height;
 
 		canvas = new Bitmap(new BitmapData(width, height));
 		canvas.bitmapData.fillRect(new Rectangle(0, 0, width, height), initFill);
@@ -33,45 +58,37 @@ class MarioPaintCanvas extends Sprite
 		addChild(canvas);
 
 		addEventListener(Event.ENTER_FRAME, onUpdate);
-		addEventListener(MouseEvent.MOUSE_DOWN, onMouseDown);
-		addEventListener(MouseEvent.MOUSE_UP, onMouseUp);
-		addEventListener(MouseEvent.MOUSE_OVER, onMouseEnter);
-		addEventListener(MouseEvent.MOUSE_OUT, onMouseLeave);
 	}
 
 	function onUpdate(evt:Event):Void
 	{
-		if (mouseIsDown)
+		if (FlxG.mouse.justPressed || FlxG.mouse.justPressedRight)
+			lastBitmap = canvas.bitmapData;
+
+		if (FlxG.mouse.pressed)
+			drawLine(lastMouseX, lastMouseY, Std.int((stage.mouseX - this.x)), Std.int((stage.mouseY - this.y)), currentColor);
+		else if (FlxG.mouse.pressedRight)
+			canvas.bitmapData.floodFill(lastMouseX, lastMouseY, currentColor);
+		lastMouseX = Std.int(stage.mouseX - this.x);
+		lastMouseY = Std.int(stage.mouseY - this.y);
+
+		if (FlxG.keys.pressed.CONTROL)
 		{
-			drawLine(Std.int(lastMouseX), Std.int(lastMouseY), Std.int((stage.mouseX - this.x)), Std.int((stage.mouseY - this.y)), currentColor);
-			lastMouseX = Std.int(stage.mouseX - this.x);
-			lastMouseY = Std.int(stage.mouseY - this.y);
+			// ! DOESNT WORK :(
+			//if (FlxG.keys.justPressed.Z)
+			//	canvas.bitmapData = lastBitmap;
+			if (FlxG.keys.justPressed.S)
+				savePNG();	
 		}
 	}
 
-	private function onMouseDown(evt:MouseEvent):Void
-	{
-		lastMouseX = Std.int(stage.mouseX - this.x);
-		lastMouseY = Std.int(stage.mouseY - this.y);
-		mouseIsDown = true;
-	}
-
-	private function onMouseUp(evt:MouseEvent):Void
-	{
-		mouseIsDown = false;
-	}
-
-	// Change mouse cursor on canvas enter/exit
-	private function onMouseEnter(evt:MouseEvent):Void
-	{
-		Mouse.cursor = MouseCursor.CROSSHAIR;
-		mouseIsDown = false;
-	}
-
-	private function onMouseLeave(evt:MouseEvent):Void
-	{
-		Mouse.cursor = MouseCursor.DEFAULT;
-		mouseIsDown = false;
+	function savePNG() {
+		var encoded:ByteArray = new ByteArray();
+		canvas.bitmapData.encode(canvas.bitmapData.rect, new flash.display.PNGEncoderOptions(), encoded);
+		new FlxTimer().start(0.5, function(_) {
+			var fileR:FileReference = new FileReference();
+			fileR.save(encoded, "canvas.png");
+		});
 	}
 
 	public function drawLine(x1:Int, y1:Int, x2:Int, y2:Int, color:Int):Void
@@ -92,7 +109,7 @@ class MarioPaintCanvas extends Sprite
 		{
 			while (true)
 			{
-				write2canvas(x1, y1, color);
+				canvas.bitmapData.fillRect(new Rectangle(x1 - cScale, y1 - cScale, cScale * 2, cScale * 2), color);
 				if (x1 == x2)
 					break;
 				x1 += ix;
@@ -108,7 +125,7 @@ class MarioPaintCanvas extends Sprite
 		{
 			while (true)
 			{
-				write2canvas(x1, y1, color);
+				canvas.bitmapData.fillRect(new Rectangle(x1 - cScale, y1 - cScale, cScale * 2, cScale * 2), color);
 				if (y1 == y2)
 					break;
 				y1 += iy;
@@ -120,10 +137,5 @@ class MarioPaintCanvas extends Sprite
 				}
 			}
 		}
-	}
-
-	function write2canvas(x1:Int, y1:Int, color:Int)
-	{
-		canvas.bitmapData.fillRect(new Rectangle(x1 - cScale, y1 - cScale, cScale * 2, cScale * 2), color);
 	}
 }
